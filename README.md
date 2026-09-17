@@ -12,4 +12,4 @@ A web-based, side-scrolling jumping game inspired by Google Chrome's offline T-R
 *   **Increased Difficulty:** Randomized obstacle heights and positions to keep gameplay unpredictable.
 *   **Multimedia Integration:** Immersive background music and audio effects for jumping and crashing.
 
-Link: https://adefreitas246.github.io/evil-ai-jump/
+Link: https://adefreitas246.github.io/infinity-jump/
