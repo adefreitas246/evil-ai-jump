@@ -13,19 +13,20 @@ let nextSpawnFrame = randomSpawnInterval();
 let frame = 0;
 let score = 0;
 let audioCtx = null;
+let musicStarted = false;
  
 function getAudioCtx() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     return audioCtx;
 }
  
-function playTone(freq, duration, type = 'sine') {
+function playTone(freq, duration, type = 'sine', volume = 0.15) {
     const ctx = getAudioCtx();
     const oscillator = ctx.createOscillator();
     const gain = ctx.createGain();
     oscillator.type = type;
     oscillator.frequency.value = freq;
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
     oscillator.connect(gain);
     gain.connect(ctx.destination);
@@ -44,6 +45,42 @@ function playScoreSound() {
 function playGameOverSound() {
     playTone(160, 0.4, 'sawtooth');
 }
+ 
+function playStartSound() {
+    const ctx = getAudioCtx();
+    [440, 660, 880].forEach((freq, i) => {
+        setTimeout(() => playTone(freq, 0.15, 'sine'), i * 90);
+    });
+}
+ 
+const MELODY = [
+    262, 330, 392, 330, 294, 392, 440, 392,
+    262, 330, 392, 494, 440, 392, 330, 294
+];
+const NOTE_SECONDS = 0.2;
+let musicPlaying = false;
+let musicTimeoutId = null;
+ 
+function startBackgroundSound() {
+    if (musicPlaying) return;
+    musicPlaying = true;
+    let step = 0;
+ 
+    const playStep = () => {
+        if (!musicPlaying) return;
+        playTone(MELODY[step % MELODY.length], NOTE_SECONDS * 0.85, 'triangle', 0.05);
+        step++;
+        musicTimeoutId = setTimeout(playStep, NOTE_SECONDS * 1000);
+    };
+ 
+    playStep();
+}
+ 
+function stopBackgroundSound() {
+    musicPlaying = false;
+    if (musicTimeoutId) clearTimeout(musicTimeoutId);
+    musicTimeoutId = null;
+}
 
 function randomSpawnInterval() {
     return 70 + Math.floor(Math.random() * 60);
@@ -52,8 +89,30 @@ function randomSpawnInterval() {
 function characterMovement() {
     character = document.getElementById('character');
     baseTop = character.offsetTop;
-
+ 
+    const startOverlay = document.getElementById('startOverlay');
+ 
+    const beginAudio = () => {
+        if (musicStarted) return;
+        musicStarted = true;
+        const ctx = getAudioCtx();
+        const start = () => {
+            playStartSound();
+            startBackgroundSound();
+        };
+        if (ctx.state === 'suspended') {
+            ctx.resume().then(start);
+        } else {
+            start();
+        }
+        if (startOverlay) startOverlay.style.display = 'none';
+    };
+ 
+    if (startOverlay) startOverlay.addEventListener('click', beginAudio);
+ 
     document.addEventListener('keydown', (event) => {
+        beginAudio();
+ 
         if (gameOver) {
             resetGame();
             return;
@@ -62,6 +121,7 @@ function characterMovement() {
             event.preventDefault();
             velocityY = JUMP_FORCE;
             isJumping = true;
+            character.classList.add('jumping');
             playJumpSound();
         }
     });
@@ -138,6 +198,7 @@ function collisionDetection() {
 function endGame() {
     gameOver = true;
     playGameOverSound();
+    stopBackgroundSound();
     const gameOverEl = document.getElementById('gameOverMessage');
     if (gameOverEl) {
         gameOverEl.textContent = `Game Over! Score: ${score} — press Space to restart`;
@@ -155,6 +216,7 @@ function resetGame() {
     isJumping = false;
     character.style.top = `${baseTop}px`;
     gameOver = false;
+    startBackgroundSound();
 
     const scoreEl = document.getElementById('score');
     if (scoreEl) scoreEl.textContent = 'Score: 0';
