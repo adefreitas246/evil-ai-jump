@@ -12,6 +12,38 @@ let spawnTimer = 0;
 let nextSpawnFrame = randomSpawnInterval();
 let frame = 0;
 let score = 0;
+let audioCtx = null;
+ 
+function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+}
+ 
+function playTone(freq, duration, type = 'sine') {
+    const ctx = getAudioCtx();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = type;
+    oscillator.frequency.value = freq;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + duration);
+}
+ 
+function playJumpSound() {
+    playTone(520, 0.12, 'square');
+}
+ 
+function playScoreSound() {
+    playTone(880, 0.1, 'triangle');
+}
+ 
+function playGameOverSound() {
+    playTone(160, 0.4, 'sawtooth');
+}
 
 function randomSpawnInterval() {
     return 70 + Math.floor(Math.random() * 60);
@@ -30,6 +62,7 @@ function characterMovement() {
             event.preventDefault();
             velocityY = JUMP_FORCE;
             isJumping = true;
+            playJumpSound();
         }
     });
 }
@@ -60,6 +93,7 @@ function obstacleMovement() {
         if (newLeft + obstacle.offsetWidth < 0) {
             obstacle.remove();
             score++;
+            playScoreSound();
             const scoreEl = document.getElementById('score');
             if (scoreEl) scoreEl.textContent = `Score: ${score}`;
         }
@@ -78,10 +112,11 @@ function generateObstacles() {
     const obstacle = document.createElement('div');
     obstacle.classList.add('obstacle');
     const size = 20 + Math.random() * 30;
+    const floatOffset = Math.random() < 0.35 ? Math.floor(Math.random() * 25) : 0;
     obstacle.style.width = `${size}px`;
     obstacle.style.height = `${size}px`;
     obstacle.style.left = `${gameArea.offsetWidth}px`;
-    obstacle.style.top = `${GROUND_Y - size}px`;
+    obstacle.style.top = `${GROUND_Y - size - floatOffset}px`;
     gameArea.appendChild(obstacle);
 }
 
@@ -102,6 +137,7 @@ function collisionDetection() {
 
 function endGame() {
     gameOver = true;
+    playGameOverSound();
     const gameOverEl = document.getElementById('gameOverMessage');
     if (gameOverEl) {
         gameOverEl.textContent = `Game Over! Score: ${score} — press Space to restart`;
